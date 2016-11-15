@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<project name="PDF Meta" default="help" basedir=".">
+	
+  <property environment="env" />
+	<property name="version"                 value="1.1"/>
+  <property name="lib.dir"                 value="${basedir}/lib"/>
+  <property name="perl.dir"                value="/usr/bin"/>
+  <property name="src.dir"                 value="${basedir}/src"/>
+  <property name="helpers.dir"             value="${basedir}/helpers"/>
+  <property name="build.dir"               value="${basedir}/bin"/>
+  <property name="build.classes.dir"       value="${build.dir}"/>
+  <property name="package.name"            value="pdfmeta"/>
+  <property name="system.null"             value="/dev/null"/>
+  <property name="distri.dir"              value="${basedir}/distribution"/>
+
+  <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+    <classpath>
+      <fileset dir="${helpers.dir}">
+        <include name="ant-contrib-1.0b3.jar"/>
+      </fileset>
+    </classpath>
+  </taskdef>
+  <taskdef resource="org/mnsoft/tools/ant/CPEclipseCP/CPEclipseCP.properties">
+    <classpath>
+      <fileset dir="${helpers.dir}">
+        <include name="CPEclipseCP.jar"/>
+        <include name="jdom.jar"/>
+      </fileset>
+    </classpath>
+  </taskdef>
+  <taskdef resource="org/mnsoft/tools/ant/ANTTimeStamp/ANTTimeStamp.properties">
+    <classpath>
+      <fileset dir="${helpers.dir}">
+        <include name="ANTTimeStamp.jar"/>
+      </fileset>
+    </classpath>
+  </taskdef>
+
+
+  <!-- ===============================================================
+       HELP INFO TASK
+       =============================================================== -->
+
+  <target name="help">
+    <echo>--------------------------------------------------</echo>
+    <echo>       The following options are available:       </echo>
+    <echo>--------------------------------------------------</echo>
+    <echo/>
+    <echo>  all              -  Make it all                 </echo>
+    <echo>  compile          -  Compile the Source Code     </echo>
+    <echo>  jar              -  Create the ${package.name}.jar</echo>
+    <echo>  source           -  Create the Source Distri.   </echo>
+    <echo>  clean            -  Clean up.                   </echo>
+    <echo/>
+    <echo>--------------------------------------------------</echo>
+  </target>
+
+
+  <!-- ===============================================================
+       ALL TASK
+       =============================================================== -->
+  <target name="all" depends="config,clean,compile,jar,source"/>
+
+
+  <!-- ===============================================================
+       CONFIG TASK
+       =============================================================== -->
+  <target name="config">
+    <cpeclipsecp pathid="CLASSPATH" property="CLASSPATH" workspace="${basedir}"
+  	        dir="." filename=".classpath" verbose="false"/>
+    <anttimestamp dateFormat="yyyyMMddHHmm" property="ANTTimeStamp"/>
+ </target>
+
+
+  <!-- ===============================================================
+       CLEAN TASK
+       =============================================================== -->
+
+  <target name="clean" depends="config">
+    <delete>
+      <fileset dir="${distri.dir}/${package.name}"><include name="**/*.*" /></fileset>
+    </delete>
+  </target>
+
+
+
+  <!-- ===============================================================
+       COMPILATION TASKS
+       =============================================================== -->
+
+  <target name="compile" depends="config">
+    <mkdir dir="${build.classes.dir}"/>
+    <javac srcdir="${src.dir}"
+         destdir="${build.classes.dir}"
+         debug="on"
+         deprecation="on"
+  	     optimize="on"
+         includeantruntime="false"
+    >
+      <classpath path="${CLASSPATH}" />
+      <include name="com/**/*.java" />
+    </javac>
+  </target>
+
+
+  <!-- ===============================================================
+       ARCHIVE TASK
+       =============================================================== -->
+
+  <target name="jar" depends="compile">
+    <delete file="${distri.dir}/${package.name}/${package.name}-${version}-${ANTTimeStamp}.jar"/>
+    <jar jarfile="${distri.dir}/${package.name}/${package.name}-${version}-${ANTTimeStamp}.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="org/**/*.class" />
+	  </fileset>
+      <manifest>
+        <attribute name="Main-Class" value="org.mnsoft.pdfmeta.PDFMeta"/>
+        <attribute name="Class-Path" value=". lib/log4j.jar ${package.name}.jar lib/iText.jar lib/bcmail-jdk16-145.jar lib/bcprov-jdk16-145.jar lib/commons-io-2.2.jar" />
+      </manifest>
+    </jar>
+  	<copy file="${distri.dir}/${package.name}/${package.name}-${version}-${ANTTimeStamp}.jar" tofile="${basedir}/${package.name}.jar" overwrite="true" />
+  </target>
+
+
+  <!-- ===============================================================
+       SOURCE TASK
+       =============================================================== -->
+
+  <target name="source" depends="compile">
+    <delete file="${distri.dir}/${package.name}/${package.name}-${version}-${ANTTimeStamp}-source.zip"/>
+    <zip destfile="${distri.dir}/${package.name}/${package.name}-${version}-${ANTTimeStamp}-source.zip">
+      <fileset dir="${src.dir}">
+          <include name="org/**/*.java" />
+      </fileset>      	
+      <fileset dir="${basedir}">
+        <include name="log4j.properties"/>
+      </fileset>
+    </zip>
+  </target>
+</project>

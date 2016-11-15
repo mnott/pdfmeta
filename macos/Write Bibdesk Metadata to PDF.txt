@@ -1,0 +1,102 @@
+(*
+  This script copies the BibDesk metadata fields of Author, Title, Keywords into the attached PDF(s).
+
+  Make sure you set the location of your pdfmeta right right under this comment!
+*)
+
+property worker : "/pgm/scripts/pdfmeta \"###AUTHOR###\" \"###TITLE###\" \"###KEYWORDS###\" \"###SOURCE###\""
+
+on run {}
+	set message to ""
+	
+	tell application "BibDesk"
+		activate
+		set theBooks to the selection of document 1
+		repeat with theBook in theBooks
+			tell theBook
+				
+				(* Get the Title and replace specials *)
+				set theTitle to value of field "Title"
+				set theTitle to my ReplaceInString(theTitle, "{", "")
+				set theTitle to my ReplaceInString(theTitle, "}", "")
+				set theTitle to my ReplaceInString(theTitle, "'", "\\'")
+				set theTitle to my ReplaceInString(theTitle, "---", " - ")
+				set theTitle to my ReplaceInString(theTitle, "--", " - ")
+				set theTitle to my ReplaceInString(theTitle, "\\", "")
+				
+				
+				-- display dialog "Title: " & theTitle buttons ("•") default button 1 giving up after 3
+				
+				(* Get the Author and replace specials *)
+				set theAuthor to value of field "Author"
+				set theAuthor to my ReplaceInString(theAuthor, " and ", ", ")
+				set theAuthor to my ReplaceInString(theAuthor, "{", "")
+				set theAuthor to my ReplaceInString(theAuthor, "}", "")
+				set theAuthor to my ReplaceInString(theAuthor, "\\", "")
+				set theAuthor to my ReplaceInString(theAuthor, "'", "\\'")
+				
+				-- display dialog "Author: " & theAuthor buttons {"•"} default button 1 giving up after 3
+				
+				(* Get the Keywords and replace specials *)
+				set theKeywords to value of field "Keywords"
+				set theKeywords to my ReplaceInString(theKeywords, "{", "")
+				set theKeywords to my ReplaceInString(theKeywords, "}", "")
+				set theKeywords to my ReplaceInString(theKeywords, "\\", "")
+				set theKeywords to my ReplaceInString(theKeywords, "'", "\\'")
+				set theKeywords to my ReplaceInString(theKeywords, "Linked with DevonThink, ", "")
+				set theKeywords to my ReplaceInString(theKeywords, ", Linked with DevonThink", "")
+				set theKeywords to my ReplaceInString(theKeywords, "Linked with DevonThink", "")
+				
+				-- display dialog "Keywords: " & theKeywords buttons {"•"} default button 1 giving up after 3
+				
+				repeat with theFile in linked files of theBook
+					(* Determine the currently attached file *)
+					
+					set thePath to (the POSIX path of theFile)
+					-- display dialog "File: " & thePath buttons {"•"} default button 1 -- giving up after 3
+					
+					if thePath ends with ".pdf" or thePath ends with ".PDF" then
+						
+						(* Create the command *)
+						set theCmd to worker
+						set theCmd to my ReplaceInString(theCmd, "###TITLE###", theTitle)
+						set theCmd to my ReplaceInString(theCmd, "###AUTHOR###", theAuthor)
+						set theCmd to my ReplaceInString(theCmd, "###KEYWORDS###", theKeywords)
+						set theCmd to my ReplaceInString(theCmd, "###SOURCE###", thePath)
+						
+						set message to message & " " & (do shell script theCmd)
+						
+					end if
+				end repeat
+			end tell
+			
+		end repeat
+		
+		display dialog message buttons {"•"} default button 1 -- giving up after 3
+		
+	end tell
+end run
+
+
+on ReplaceInString(aString, oldStr, replStr)
+	set newString to ""
+	if aString is not "" then
+		tell AppleScript
+			set oldDelim to text item delimiters
+			set text item delimiters to oldStr
+			set foundList to text items of aString -- tokenise the string
+			set text item delimiters to oldDelim
+		end tell
+		set n to count of foundList
+		if n ≤ 1 then
+			set newString to aString
+		else
+			set newString to (item 1 of foundList)
+			repeat with i from 2 to n
+				-- display dialog "i=" & i & ":" & return & return & (item i of foundList)
+				set newString to newString & replStr & (item i of foundList)
+			end repeat
+		end if
+	end if
+	return newString
+end ReplaceInString

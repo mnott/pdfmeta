@@ -1,0 +1,166 @@
+#!/bin/bash
+
+###################################################
+#
+# Small script to set metadata in a PDF.
+#
+###################################################
+# (c) Matthias Nott. Licensed under WTFPL.
+###################################################
+
+LOCATION=$(dirname $(readlink -f "$0"))
+
+###################################################
+#
+# Configuration
+# 
+# For most we do try to auto detect the values, so
+# if you change them, know what you're doing.
+#
+###################################################
+
+#
+# If you want to transfer extended attributes on a
+# Mac, you need to specify where you have your copy
+# of pxattr. If you don't specify this, pxattr will
+# not be used.
+# 
+# On a Mac, this is relevant if you use Skim as PDF
+# reader: it will write annotations not directly
+# into the PDF, but into its metadata. We use
+# pxattr in order to carry along that metadata.
+# 
+
+PXATTR=${LOCATION}/pxattr/pxattr
+
+#
+# Location of your pdfmeta.jar as well as its
+# lib subdirectory
+# 
+PDFMETA=${LOCATION}
+
+#
+# Amount of memory we want to give to Java.
+# 1 GB sounds quite good, but maybe you've even
+# bigger PDFs
+#
+JAVAMEM=1024m
+
+
+###################################################
+#
+# End of Configuration.
+#
+###################################################
+
+#
+# Do some checks
+#
+
+#
+# Check whether we have at least one command line parameter
+# 
+if [[ $# < 4 ]]; then
+  echo "Usage: $0 author title keywords pdffile"
+  exit 1
+fi
+
+#
+# Check whether we have pdfmeta.jar etc.
+#
+if [[ ! -f "$PDFMETA/pdfmeta.jar" || ! -d "$PDFMETA/lib" ]]; then
+  echo Could not find pdfmeta.jar or its libraries in $PDFMETA
+  exit 1
+fi
+
+#
+# Fetch our command line arguments
+#
+AUTHOR=$1
+TITLE=$2
+KEYWORDS=$3
+SOURCE=$(readlink -f "$4")
+
+#
+# Be productive
+#
+INFILE=$(basename "$SOURCE")
+TMPDIR=$(mktemp -d -t pdfmeta.XXXX)
+
+(
+  echo ""
+
+  #
+  # Go to a temp directory and grab
+  # a copy of our source file
+  #
+  cd "$TMPDIR"
+  cp -a "$SOURCE" "$INFILE"
+
+  #
+  # Write our xattrs to some file - only
+  # works on directory level, which is
+  # why we work in a temp directory
+  #
+  if [[ -f "$PXATTR" ]]; then
+    "$PXATTR" -lR "$INFILE" >attr.txt
+  fi
+
+  java -Xmx${JAVAMEM} -jar "$PDFMETA/pdfmeta.jar" --title "$TITLE" --author "$AUTHOR" --keywords "$KEYWORDS" "$INFILE" out.pdf
+
+  #
+  # Simple check whether java reported
+  # an error.
+  # 
+  # TODO: We should clean up our temp
+  #       directory before leaving
+  #
+  if [[ ! -f out.pdf ]]; then
+    echo Error creating out.pdf
+    exit 1
+  fi
+
+  #
+  # Move outfile back to infile
+  # 
+  mv out.pdf "$INFILE"
+
+  #
+  # Read the xattrs back - this only
+  # works on a directory level, which
+  # is why we worked in a temp dir
+  # 
+  if [[ -f "$PXATTR" ]]; then
+    "$PXATTR" -S attr.txt
+    rm -f attr.txt
+  fi
+
+  mv "$INFILE" "$SOURCE" 
+)
+
+#
+# Cleanup
+#
+rmdir "$TMPDIR"
+
+#
+# Collect results
+#
+result="Have set "
+
+if [[ "$AUTHOR"   != "" ]]; then result="$result author to $AUTHOR, "; fi
+if [[ "$TITLE"    != "" ]]; then result="$result title to $TITLE, "; fi
+if [[ "$KEYWORDS" != "" ]]; then result="$result keywords to $KEYWORDS"; fi
+
+result="$result"
+
+if [[ -f "$PXATTR" ]]; then
+ result="$result, and merged annotations"
+fi
+
+result="$result."
+
+#
+# Say what we did
+#
+echo $result
